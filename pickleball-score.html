@@ -202,7 +202,7 @@
         #pointLeft br, #pointRight br { display: none; }
         #pointLeft span:last-child, #pointRight span:last-child { font-size: 15px; }
         #refereeSigCanvas { touch-action: none; user-select: none; }
-        .pickleball-icon { position: relative; display: inline-block; width: 28px; height: 23px;
+        .pickleball-icon { position: relative; display: inline-block; width: 21px; height: 23px;
             color: #93c5fd; flex: none; vertical-align: middle; }
         .pickleball-icon[data-team="2"] { color: #6ee7b7; }
         .pickleball-paddle { position: absolute; top: 1px; left: 4px; width: 13px; height: 15px;
@@ -211,13 +211,13 @@
         .pickleball-paddle::before { content: ""; position: absolute; inset: 7px 2px auto; border-top: 2px solid #0f172a75; }
         .pickleball-paddle::after { content: ""; position: absolute; top: 13px; left: 4px; width: 5px; height: 9px;
             border-radius: 2px; background: #94a3b8; }
-        .pickleball-ball { position: absolute; top: 2px; right: 0; width: 10px; height: 10px; border-radius: 50%;
+        .pickleball-ball { display: inline-block; flex: none; width: 11px; height: 11px; border-radius: 50%;
             background: radial-gradient(circle at 30% 38%, #713f12 0 1px, transparent 1.2px),
                 radial-gradient(circle at 68% 32%, #713f12 0 1px, transparent 1.2px),
                 radial-gradient(circle at 55% 73%, #713f12 0 1px, transparent 1.2px), #facc15; }
         .prep-player-name { display: block; overflow-wrap: anywhere; }
         #step3 .slot-name { display: flex; align-items: center; justify-content: center; gap: 3px; }
-        #step3 .slot-name > span:last-child { min-width: 0; }
+        #step3 .slot-player-label { min-width: 0; }
         #timerShield { position: fixed; inset: 0 0 auto; z-index: 99999; padding: max(.75rem, env(safe-area-inset-top)) .75rem .85rem; }
         #timerShield button { min-height: 44px; max-width: 100%; font-size: 16px; white-space: normal; }
         #editFinalScore { width: 100%; padding-inline: .5rem; }
@@ -256,8 +256,8 @@
                 <div class="text-sm font-bold text-indigo-300 mb-2">🔍 智能识别填充</div>
                 <div id="smartFillBody" class="mt-1">
                     <p class="text-[10px] text-slate-400 mb-2 leading-relaxed">直接把包含比赛信息的文本粘贴到下方，点击"识别并填充"。</p>
-                    <textarea id="smartFillInput" class="input-base mb-2 text-xs py-1.5 px-2" rows="2" placeholder="空格 / 逗号 / 制表符均可分隔：
-1-4-5 4号场 容宝怡/谢晓彤 容宝怡 谢晓彤 肖海茹/梁雨晴 肖海茹 梁雨晴"></textarea>
+                    <textarea id="smartFillInput" class="input-base mb-2 text-xs py-1.5 px-2" rows="2" placeholder="单打：1-1，1号，AA，BB
+双打：1-4-5 4号场 容宝怡/谢晓彤 容宝怡 谢晓彤 肖海茹/梁雨晴 肖海茹 梁雨晴"></textarea>
                     <div class="flex gap-2">
                         <button type="button" onclick="applySmartFill()" class="bg-indigo-600 flex-1 py-2 rounded-lg text-xs font-bold btn-press shadow-md">✨ 识别并填充</button>
                         <button type="button" onclick="clearSmartFill()" class="bg-slate-700 px-4 py-2 rounded-lg text-xs font-bold btn-press text-slate-300">清空</button>
@@ -1096,6 +1096,17 @@
                     const looksLikeRow = /^[A-Za-z0-9][A-Za-z0-9_\-]*$/.test(String(bySpace[0] || ''))
                         && /\d/.test(String(bySpace[1] || ''))
                         && !/(?:比赛编号|赛事编号|场次编号|编号|场地|场号|目标分|封顶分|队伍|对阵|\bvs\b)/i.test(line);
+                    const singleColumns = cols.length === 4 ? cols : bySpace;
+                    const [singleId, singleCourt, singleLeft, singleRight] = singleColumns;
+                    if (singleColumns.length === 4 && /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(singleId)
+                        && !/(?:目标分|封顶分|队伍|对阵|\bvs\b)/i.test(line)
+                        && /^(?:(?:第|场地|场号|court)\s*)?\d{1,3}\s*(?:号(?:场)?|场)?$/i.test(singleCourt)) {
+                        return {
+                            matchIdInput2: singleId.toUpperCase(), courtNo: singleCourt.match(/\d+/)[0],
+                            t1Name: singleLeft, t1p1: singleLeft, t1p2: '',
+                            t2Name: singleRight, t2p1: singleRight, t2p2: '', matchTypeSel: 'singles'
+                        };
+                    }
                     if (bySpace.length >= 6 && looksLikeRow) cols = bySpace;
                 }
                 
@@ -1303,7 +1314,7 @@
             icon.className = 'pickleball-icon';
             icon.dataset.team = team;
             icon.setAttribute('aria-hidden', 'true');
-            icon.innerHTML = '<i class="pickleball-paddle"></i><i class="pickleball-ball"></i>';
+            icon.innerHTML = '<i class="pickleball-paddle"></i>';
             return icon;
         }
 
@@ -1623,8 +1634,16 @@
                 if (name) {
                     el.innerHTML = bld(name, teamNum, isServTarget);
                     const label = document.createElement('span');
+                    label.className = 'slot-player-label';
                     label.textContent = name;
-                    el.querySelector('.slot-name').replaceChildren(pickleballPlayerIcon(teamNum), label);
+                    const player = el.querySelector('.slot-name');
+                    player.replaceChildren(pickleballPlayerIcon(teamNum), label);
+                    if (isServTarget) {
+                        const ball = document.createElement('span');
+                        ball.className = 'pickleball-ball';
+                        ball.setAttribute('aria-hidden', 'true');
+                        player.appendChild(ball);
+                    }
                     el.classList.remove('hidden');
                 } else {
                     el.innerHTML = '';
@@ -1640,9 +1659,9 @@
                         return expectedSide === (score % 2 === 0 ? 'Right' : 'Left');
                     } else {
                         let tStr = team === 1 ? 't1' : 't2';
-                        if (expectedSide === 'Right' && gameState[tStr].r === gameState.servingPlayer) return true;
-                        if (expectedSide === 'Left' && gameState[tStr].l === gameState.servingPlayer) return true;
-                        return false;
+                        const teamSlots = gameState[tStr];
+                        if (teamSlots.r === gameState.servingPlayer) return expectedSide === 'Right';
+                        return expectedSide === 'Left' && teamSlots.l === gameState.servingPlayer;
                     }
                 } else {
                     let score = (team === 1) ? matchState.t1Score : matchState.t2Score;
