@@ -175,6 +175,7 @@
         .court-setup, .scoring-court { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
         .court-setup button { overflow-wrap: anywhere; }
         .court-team, .court-swap { border-radius: .55rem; padding: .35rem .55rem; font-weight: 700; }
+        #step2 .court-team { min-height: 36px; padding: .25rem .4rem; font-size: 14px; }
         .court-team { color: #ecfeff; background: #134e4a; border: 1px solid #5eead4; }
         .court-team[aria-pressed="true"] { color: #1c1917; background: #fcd34d; border-color: #fcd34d; }
         .court-swap { grid-column: 1 / -1; border: 1px solid #64748b; background: #334155; }
@@ -288,7 +289,6 @@
                 </div>
             </div>
 
-            <button onclick="handleStartSetup()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-black py-3.5 rounded-xl text-lg shadow-[0_4px_15px_rgba(245,158,11,0.4)] btn-press">查看球场设置 ↓</button>
         </div>
 
         <div id="step2" class="hidden-section">
@@ -336,27 +336,6 @@
             </section>
 
             <div class="flex gap-2">
-                        <input type="radio" id="init-ba-f" name="init_ba" value="f" checked><label for="init-ba-f" id="label-init-ba-f" class="radio-label py-2.5 truncate w-1/2"></label>
-                        <input type="radio" id="init-ba-t" name="init_ba" value="t"><label for="init-ba-t" id="label-init-ba-t" class="radio-label py-2.5 truncate w-1/2"></label>
-                    </div>
-                </div>
-                <div>
-                    <label id="servingTeamLabel" class="text-[11px] font-black text-emerald-400 mb-1 block tracking-widest">2. 发球权（第一回合发球队伍）</label>
-                    <div class="flex gap-2">
-                        <label class="radio-label py-2.5 truncate w-1/2" style="padding:0; border:none; background:transparent;"><input type="radio" name="serve" value="1" onchange="backupPreparationChoices()" checked><span class="radio-label py-2.5 w-full" id="serveLabel1">左队</span></label>
-                        <label class="radio-label py-2.5 truncate w-1/2" style="padding:0; border:none; background:transparent;"><input type="radio" name="serve" value="2" onchange="backupPreparationChoices()"><span class="radio-label py-2.5 w-full" id="serveLabel2">右队</span></label>
-                    </div>
-                </div>
-                <div id="doublesStance" class="hidden border-t border-slate-700 pt-3 mt-1">
-                    <label id="stanceLabel" class="text-[11px] font-black text-amber-400 mb-1 block tracking-widest flex items-center gap-1"><span>📍</span> 3. 双打首发站位（两队可分别选择发球员/接发球员）</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div><div id="t1StanceLabel" class="text-[10px] text-blue-300 text-center mb-1"></div><select id="t1Stance" onchange="backupPreparationChoices()" class="input-base text-xs font-bold text-center bg-slate-900 py-1.5 px-2"></select></div>
-                        <div><div id="t2StanceLabel" class="text-[10px] text-emerald-300 text-center mb-1"></div><select id="t2Stance" onchange="backupPreparationChoices()" class="input-base text-xs font-bold text-center bg-slate-900 py-1.5 px-2"></select></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex gap-2">
                 <button id="backToSetupBtn" onclick="backToStep1()" class="bg-slate-700 w-1/3 py-3 rounded-xl font-bold btn-press shadow-md border border-slate-500">回到球员资料</button>
                 <button id="confirmStartBtn" onclick="confirmAndStart()" class="bg-emerald-600 w-2/3 py-3 rounded-xl font-black text-lg shadow-[0_5px_15px_rgba(16,185,129,0.3)] btn-press">✓ 确认开赛</button>
             </div>
@@ -379,7 +358,6 @@
                     <div id="rightTeamName" class="text-[11px] font-bold text-emerald-400 mb-0.5 truncate w-full text-center px-1"></div>
                     <div id="rightScore" class="text-3xl leading-none font-black text-white italic drop-shadow-md">0</div>
                 </div>
-                <button id="viewSettingsBtn" onclick="backToStep2()" class="ml-1 bg-slate-700 text-slate-300 px-1.5 py-1 rounded text-[10px] border border-slate-600">设置</button>
             </div>
 
             <!-- 得分轨迹 (极度精简) -->
@@ -640,7 +618,14 @@
 
         function validateRecoveryPayload(data) {
             if (!data || data.version !== 6 || !data.identity || !data.currentMatch || !data.matchState) return '备份格式无效';
-            const expected = recoveryIdentity(data.currentMatch);
+            const match = data.currentMatch;
+            if (!recoveryText(match.id) || !recoveryText(match.t1Name) || !recoveryText(match.t2Name)
+                || ![1, 3].includes(match.format) || !Number.isInteger(match.target) || match.target <= 0
+                || !Number.isInteger(match.cap)
+                || !['rally', 'sideout'].includes(match.meth) || !['singles', 'doubles'].includes(match.type)) {
+                return '比赛资料缺失或规则无效，请重新录入参赛资料';
+            }
+            const expected = recoveryIdentity(match);
             const identity = data.identity;
             if (identity.eventId !== expected.eventId || identity.eventId !== recoveryEventId()) return '赛事身份不匹配';
             if (normalizeMatchId(identity.matchId) !== expected.matchId) return '比赛身份不匹配';
@@ -681,7 +666,7 @@
                             if(!matchState.firstGameServer) matchState.firstGameServer = 1;
                             gameState = data.gameState; timeoutUsed = data.timeoutUsed || {t1:false, t2:false, medicalT1:false, medicalT2:false};
                             matchPhase = data.matchPhase || (data.step >= 3 ? 'in_progress' : 'not_started');
-                            if (sysMode !== 'local' && typeof setAuthoritativeFieldsLocked === 'function') setAuthoritativeFieldsLocked(true);
+                            setAuthoritativeFieldsLocked(matchPhase !== 'not_started');
                             if (typeof reconcileGameCompletion === 'function') reconcileGameCompletion();
 
                             if(data.step === 2) {
@@ -916,7 +901,9 @@
 
             restoreLocalSetupDefaults();
             restoreSetupCache();
-            if (!(await checkAndRestoreBackup())) showStep(1);
+            if (!(await checkAndRestoreBackup())) {
+                if (!syncSetupFromForm()) showStep(1);
+            }
         }
 
         window.startOfflineEmergency = async () => {
@@ -1186,6 +1173,7 @@
         }
 
         window.applySmartFill = () => {
+            if (matchPhase !== 'not_started') return;
             const inputEl = $('smartFillInput');
             const raw = inputEl ? inputEl.value : '';
             if (!raw.trim()) return showToast('请先粘贴需要识别的文字', true);
@@ -1215,7 +1203,7 @@
                 box.innerHTML = `✅ 已填充：<span class="text-emerald-200 font-bold">${applied.join('、')}</span>`;
             }
             showToast(`✅ 识别完成，已填充 ${applied.length} 项`);
-            handleStartSetup();
+            if (syncSetupFromForm()) $('step2').scrollIntoView({block: 'start'});
         };
 
         function isGameComplete() {
@@ -1262,50 +1250,26 @@
             $('undoPoint').disabled = !!activeTimer || !['in_progress','game_complete_pending_settlement'].includes(matchPhase);
         }
 
-        function updateSetupAuthority() {
-            const g1SetupVisible = matchPhase === 'not_started';
-            $('coinTossSetup').classList.toggle('hidden', !g1SetupVisible);
-            $('courtEndSetup').classList.toggle('hidden', !g1SetupVisible);
-            const readOnly = ['in_progress','deciding_game_end_change','game_complete_pending_settlement'].includes(matchPhase);
-            document.querySelectorAll('#step2 input, #step2 select').forEach(element => { element.disabled = readOnly; });
-            if (matchPhase === 'between_games_preparation') {
-                document.querySelectorAll('#step2 input, #step2 select').forEach(element => { element.disabled = false; });
-                document.querySelectorAll('input[name="init_ba"]').forEach(element => { element.disabled = true; });
-            }
-            ['prepTimerBtn', 'flipCoinBtn', 'backToSetupBtn'].forEach(id => { const element = $(id); if (element) element.disabled = readOnly; });
-            const confirmBtn = $('confirmStartBtn');
-            if (confirmBtn) confirmBtn.disabled = matchPhase === 'deciding_game_end_change';
-            const backBtn = $('backToSetupBtn');
-            if (backBtn && matchPhase === 'between_games_preparation') backBtn.disabled = true;
+        function isPreparingGame() {
+            return matchPhase === 'not_started' || matchPhase === 'between_games_preparation';
         }
 
-        function showStep(step){
-            for(let i=1; i<=4; i++) { $(`step${i}`).classList.add('hidden-section'); }
-            $(`step${step}`).classList.remove('hidden-section');
-            
+        function showStep(step) {
+            if (step === 2 && !isPreparingGame()) return;
+            for (let i = 1; i <= 4; i++) $('step' + i).classList.add('hidden-section');
+            $('step' + step).classList.remove('hidden-section');
+
             if (step === 2) {
-                if (matchPhase === 'not_started') $('step1').classList.remove('hidden-section');
-                renderSetupCourt();
                 const betweenGames = matchPhase === 'between_games_preparation';
+                $('step1').classList.toggle('hidden-section', betweenGames);
                 $('betweenGamesHeading').classList.toggle('hidden', !betweenGames);
-                if (betweenGames) $('betweenGamesTitle').innerText = `下一局准备 · 第 ${matchState.currentGame} 局`;
-                const confirmBtn = $('confirmStartBtn');
-                if (confirmBtn) {
-                    if (betweenGames) {
-                        confirmBtn.innerText = `▶ 明确开始 Game ${matchState.currentGame}`;
-                        confirmBtn.classList.remove('bg-blue-600');
-                        confirmBtn.classList.add('bg-emerald-600');
-                    } else if (matchPhase === 'in_progress' || matchPhase === 'game_complete_pending_settlement') {
-                        confirmBtn.innerText = matchPhase === 'game_complete_pending_settlement' ? '↩️ 返回等待结算' : '↩️ 返回进行中比赛';
-                        confirmBtn.classList.remove('bg-emerald-600');
-                        confirmBtn.classList.add('bg-blue-600');
-                    } else {
-                        confirmBtn.innerText = '✓ 确认开赛';
-                        confirmBtn.classList.remove('bg-blue-600');
-                        confirmBtn.classList.add('bg-emerald-600');
-                    }
-                }
-                updateSetupAuthority();
+                $('coinTossSetup').classList.toggle('hidden', betweenGames);
+                $('courtEndSetup').classList.toggle('hidden', betweenGames);
+                $('backToSetupBtn').classList.toggle('hidden', betweenGames);
+                $('confirmStartBtn').classList.toggle('w-full', betweenGames);
+                if (betweenGames) $('betweenGamesTitle').textContent = '下一局准备 · 第 ' + matchState.currentGame + ' 局';
+                $('confirmStartBtn').textContent = betweenGames ? '开始第 ' + matchState.currentGame + ' 局' : '确认开赛';
+                renderSetupCourt();
             }
             if (step === 4) {
                 const submitBtn = $('submitReport');
@@ -1323,7 +1287,6 @@
 
         function renderSetupCourt() {
             const serving = Number(getRadio('serve'));
-            const locked = !['not_started', 'between_games_preparation'].includes(matchPhase);
             for (const left of [true, false]) {
                 const team = setupCourtTeam(left);
                 const prefix = 't' + team;
@@ -1332,14 +1295,13 @@
                 const teamButton = $(left ? 'serveCourtLeft' : 'serveCourtRight');
                 teamButton.textContent = (left ? '左场 · ' : '右场 · ') + currentMatch[prefix + 'Name'] + ' · ' + role;
                 teamButton.setAttribute('aria-pressed', String(serving === team));
-                teamButton.disabled = locked;
                 const doubles = currentMatch.type === 'doubles';
                 for (const right of [true, false]) {
                     const id = left ? (right ? 'prepBL' : 'prepTL') : (right ? 'prepTR' : 'prepBR');
                     const player = doubles ? currentMatch[prefix + 'p' + (right ? first : 3 - first)] : (right ? currentMatch[prefix + 'p1'] : '');
                     const button = $(id);
                     button.textContent = player ? player + (right ? ' · ' + role : '') : '空区';
-                    button.disabled = locked || !doubles;
+                    button.disabled = !doubles;
                     button.classList.toggle('court-starter', right);
                     if (doubles) button.setAttribute('aria-pressed', String(right));
                     else button.removeAttribute('aria-pressed');
@@ -1354,18 +1316,31 @@
         };
 
         window.chooseCourtServe = left => {
+            if (!isPreparingGame()) return;
             document.querySelector(`input[name="serve"][value="${setupCourtTeam(left)}"]`).checked = true;
             backupPreparationChoices();
         };
 
         window.chooseCourtPlayer = (left, right) => {
-            if (right || currentMatch.type !== 'doubles') return;
+            if (!isPreparingGame() || right || currentMatch.type !== 'doubles') return;
             const select = $(`t${setupCourtTeam(left)}Stance`);
             select.value = select.value === 'P1' ? 'P2' : 'P1';
             backupPreparationChoices();
         };
 
-        window.handleStartSetup = (scroll = true) => {
+        function syncSetupFromForm() {
+            if (matchPhase !== 'not_started') return false;
+            const requiredPlayers = $('matchTypeSel').value === 'doubles'
+                ? ['t1p1', 't1p2', 't2p1', 't2p2'] : ['t1p1', 't2p1'];
+            if (requiredPlayers.some(id => !$(id).value.trim())) {
+                if (getCurrentStep() === 2) {
+                    stopPrepCounting();
+                    clearBackup();
+                    currentMatch = {};
+                    showStep(1);
+                }
+                return false;
+            }
             localStorage.setItem('pickle_def_court', $('courtNo').value); localStorage.setItem('pickle_def_target', $('targetScore').value); localStorage.setItem('pickle_def_cap', $('capScore').value); localStorage.setItem('pickle_def_format', $('gameFormat').value); localStorage.setItem('pickle_def_meth', $('scoreRule').value);
             saveSetupCache();
             currentMatch = {
@@ -1377,20 +1352,14 @@
                 is_team: false
             };
             showStep(2);
-            if (scroll) $('step2').scrollIntoView({block: 'start'});
-        };
+            return true;
+        }
 
-        window.backToStep1 = async () => {
-            if (matchPhase === 'between_games_preparation') return showToast('下一局准备期间比赛规则已锁定', true);
-            if (currentMatch && currentMatch.id) {
-                clearBackup();
-                currentMatch = {};
-            }
-            stopPrepCounting();
-            showStep(1);
+        window.backToStep1 = () => {
+            if (matchPhase !== 'not_started') return;
             $('step1').scrollIntoView({block: 'start'});
+            $('smartFillInput').focus({preventScroll: true});
         };
-        window.backToStep2 = async () => { showStep(2); };
 
         function stopPrepCounting() { if(prepInterval){ clearInterval(prepInterval); prepInterval=null; } const btn = $('prepTimerBtn'); btn.innerText = "⏱️ 热身倒数"; btn.classList.remove('bg-red-700', 'border-red-500'); btn.classList.add('bg-indigo-600'); }
         window.togglePrepTimer = () => {
@@ -1416,19 +1385,9 @@
         };
 
         window.confirmAndStart = async () => {
-            if (matchPhase === 'between_games_preparation') {
-                await executeStartMatch();
-                return;
-            }
-            if (matchPhase === 'deciding_game_end_change') {
-                showToast('⚠️ 决胜局换场进行中，请在换场面板确认双方完成换场后继续', true);
-                return;
-            }
-            if (matchPhase === 'in_progress' || matchPhase === 'game_complete_pending_settlement') {
-                await resumeActiveMatch();
-                return;
-            }
-            showDndReminder();
+            if (getCurrentStep() !== 2 || !currentMatch.id) return;
+            if (matchPhase === 'between_games_preparation') await executeStartMatch();
+            else if (matchPhase === 'not_started') showDndReminder();
         };
 
         window.backupPreparationChoices = () => {
@@ -1460,10 +1419,8 @@
         };
 
         async function executeStartMatch() {
-            if (matchPhase === 'deciding_game_end_change') {
-                showToast('⚠️ 决胜局换场进行中，禁止重新开始比赛', true);
-                return;
-            }
+            if (!isPreparingGame() || getCurrentStep() !== 2 || !currentMatch.id) return;
+            setAuthoritativeFieldsLocked(true);
             stopPrepCounting();
             const isNextGame = matchPhase === 'between_games_preparation';
             let viewBa = isNextGame ? gameState.viewBa : getRadio('init_ba') === 't';
@@ -1522,16 +1479,6 @@
             $('recoveryBadge').classList.add('hidden');
             renderGame();
             showStep(3);
-        }
-
-        async function resumeActiveMatch() {
-            if (matchPhase !== 'in_progress' && matchPhase !== 'game_complete_pending_settlement') {
-                showToast('❗ 当前比赛尚未处于进行中状态', true);
-                return;
-            }
-            renderGame();
-            showStep(3);
-            showToast('✅ 已返回进行中比赛');
         }
 
         function projectSinglesCourtPositions() {
@@ -2072,12 +2019,7 @@
             captureSignatureBoard();
             bindSetupCacheListeners();
             const syncCourt = event => {
-                if (!SETUP_FIELD_IDS.includes(event.target.id) || matchPhase !== 'not_started') return;
-                const requiredPlayers = $('matchTypeSel').value === 'doubles'
-                    ? ['t1p1', 't1p2', 't2p1', 't2p2'] : ['t1p1', 't2p1'];
-                if (getCurrentStep() === 2 || requiredPlayers.every(id => $(id).value.trim())) {
-                    handleStartSetup(false);
-                }
+                if (SETUP_FIELD_IDS.includes(event.target.id)) syncSetupFromForm();
             };
             $('step1').addEventListener('input', syncCourt);
             $('step1').addEventListener('change', syncCourt);
