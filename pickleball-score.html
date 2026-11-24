@@ -299,14 +299,14 @@
 
             <div class="section-card space-y-2 p-3 mb-2">
                 <div class="bg-blue-900/10 p-2 rounded-lg border border-blue-500/20">
-                    <input type="text" id="t1Name" oninput="syncInputs()" class="input-base mb-1.5 font-bold text-blue-400 py-1.5 px-2 text-sm" placeholder="左/蓝方 队名">
+                    <input type="text" id="t1Name" oninput="syncInputs()" class="input-base mb-1.5 font-bold text-blue-400 py-1.5 px-2 text-sm" placeholder="队名（默认左方）">
                     <div class="flex gap-2">
                         <input type="text" id="t1p1" oninput="syncInputs()" class="input-base py-1.5 px-2 text-sm flex-1 min-w-0" placeholder="队员 A">
                         <input type="text" id="t1p2" oninput="syncInputs()" class="input-base p2-only py-1.5 px-2 text-sm flex-1 min-w-0" placeholder="队员 B (双打)">
                     </div>
                 </div>
                 <div class="bg-emerald-900/10 p-2 rounded-lg border border-emerald-500/20">
-                    <input type="text" id="t2Name" oninput="syncInputs()" class="input-base mb-1.5 font-bold text-emerald-400 py-1.5 px-2 text-sm" placeholder="右/绿方 队名">
+                    <input type="text" id="t2Name" oninput="syncInputs()" class="input-base mb-1.5 font-bold text-emerald-400 py-1.5 px-2 text-sm" placeholder="队名（默认右方）">
                     <div class="flex gap-2">
                         <input type="text" id="t2p1" oninput="syncInputs()" class="input-base py-1.5 px-2 text-sm flex-1 min-w-0" placeholder="队员 C">
                         <input type="text" id="t2p2" oninput="syncInputs()" class="input-base p2-only py-1.5 px-2 text-sm flex-1 min-w-0" placeholder="队员 D (双打)">
@@ -619,7 +619,13 @@
                 let backupStep = getCurrentStep();
                 if (matchPhase === 'between_games_preparation') backupStep = 2;
                 else if (['in_progress','deciding_game_end_change','game_complete_pending_settlement'].includes(matchPhase)) backupStep = getCurrentStep() === 4 ? 4 : 3;
-                writeRecoverySnapshot(backupStep, backupStep === 4 ? { signatureDraft: pendingSignatureDraft } : undefined);
+                let extra;
+                if (matchPhase === 'not_started') {
+                    extra = { setupFields: Object.fromEntries(SETUP_FIELD_IDS.map(id => [id, $(id).value])) };
+                } else if (backupStep === 4) {
+                    extra = { signatureDraft: pendingSignatureDraft };
+                }
+                writeRecoverySnapshot(backupStep, extra);
             }
         }
         function clearBackup() { localStorage.removeItem(recoveryBackupKey()); }
@@ -687,7 +693,13 @@
                             if (typeof reconcileGameCompletion === 'function') reconcileGameCompletion();
 
                             if (data.step === 2 || (data.step === 3 && matchPhase === 'not_started')) {
-                                projectCurrentMatchToSetup();
+                                if (matchPhase === 'not_started' && data.setupFields) {
+                                    for (const id of SETUP_FIELD_IDS) {
+                                        if (typeof data.setupFields[id] === 'string') $(id).value = data.setupFields[id];
+                                    }
+                                } else {
+                                    projectCurrentMatchToSetup();
+                                }
                                 if (matchPhase === 'between_games_preparation') setAuthoritativeFieldsLocked(true);
                                 const preparation = matchState.preparation || {};
                                 $('init-ba-t').checked = !!preparation.viewBa;
@@ -926,9 +938,7 @@
 
             restoreLocalSetupDefaults();
             restoreSetupCache();
-            if (!(await checkAndRestoreBackup())) {
-                if (!syncSetupFromForm()) showStep(1);
-            }
+            if (!(await checkAndRestoreBackup())) syncSetupFromForm(false);
         }
 
         window.startOfflineEmergency = async () => {
@@ -1329,7 +1339,7 @@
             return matchPhase === 'not_started' || matchPhase === 'between_games_preparation';
         }
 
-        function showStep(step) {
+        function showStep(step, save = true) {
             if (step === 2 && !isPreparingGame()) return;
             for (let i = 1; i <= 4; i++) $('step' + i).classList.add('hidden-section');
             $('step' + step).classList.remove('hidden-section');
@@ -1354,7 +1364,7 @@
             $('matchPreviewActions').classList.toggle('hidden', !preview);
             $('changeRefereeBtn').classList.toggle('hidden', step >= 3 || matchPhase === 'between_games_preparation');
             syncSignatureActions();
-            backupState();
+            if (save) backupState();
         }
 
         function setupCourtTeam(left) {
@@ -1417,30 +1427,21 @@
             backupPreparationChoices();
         };
 
-        function syncSetupFromForm() {
+        function syncSetupFromForm(save = true) {
             if (matchPhase !== 'not_started') return false;
-            const requiredPlayers = $('matchTypeSel').value === 'doubles'
-                ? ['t1p1', 't1p2', 't2p1', 't2p2'] : ['t1p1', 't2p1'];
-            if (requiredPlayers.some(id => !$(id).value.trim())) {
-                if (getCurrentStep() === 2) {
-                    stopPrepCounting();
-                    clearBackup();
-                    currentMatch = {};
-                    showStep(1);
-                }
-                return false;
+            if (save) {
+                localStorage.setItem('pickle_def_court', $('courtNo').value); localStorage.setItem('pickle_def_target', $('targetScore').value); localStorage.setItem('pickle_def_cap', $('capScore').value); localStorage.setItem('pickle_def_format', $('gameFormat').value); localStorage.setItem('pickle_def_meth', $('scoreRule').value);
+                saveSetupCache();
             }
-            localStorage.setItem('pickle_def_court', $('courtNo').value); localStorage.setItem('pickle_def_target', $('targetScore').value); localStorage.setItem('pickle_def_cap', $('capScore').value); localStorage.setItem('pickle_def_format', $('gameFormat').value); localStorage.setItem('pickle_def_meth', $('scoreRule').value);
-            saveSetupCache();
             currentMatch = {
-                id: $('matchIdInput2').value || currentMatch.id || `LOC-${Date.now().toString().slice(-4)}`, court: $('courtNo').value || '1',
+                id: $('matchIdInput2').value.trim() || currentMatch.id || `LOC-${Date.now().toString().slice(-4)}`, court: $('courtNo').value || '1',
                 t1Name: $('t1Name').value.trim()||'左方', t2Name: $('t2Name').value.trim()||'右方',
                 t1p1: $('t1p1').value.trim()||'A', t1p2: $('t1p2').value.trim()||'B',
                 t2p1: $('t2p1').value.trim()||'C', t2p2: $('t2p2').value.trim()||'D',
                 format: parseInt($('gameFormat').value), meth: $('scoreRule').value, type: $('matchTypeSel').value, target: parseInt($('targetScore').value)||21, cap: parseInt($('capScore').value)||0, ref: `[Local] ${currentRefereeName}`,
                 is_team: false
             };
-            showStep(2);
+            showStep(2, save);
             return true;
         }
 
