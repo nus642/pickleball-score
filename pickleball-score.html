@@ -202,6 +202,24 @@
         #pointLeft br, #pointRight br { display: none; }
         #pointLeft span:last-child, #pointRight span:last-child { font-size: 15px; }
         #refereeSigCanvas { touch-action: none; user-select: none; }
+        .pickleball-icon { position: relative; display: inline-block; width: 28px; height: 23px;
+            color: #93c5fd; flex: none; vertical-align: middle; }
+        .pickleball-icon[data-team="2"] { color: #6ee7b7; }
+        .pickleball-paddle { position: absolute; top: 1px; left: 4px; width: 13px; height: 15px;
+            transform: rotate(36deg); border-radius: 5px 5px 4px 4px; background: currentColor;
+            box-shadow: inset 0 0 0 1px #e2e8f080; }
+        .pickleball-paddle::before { content: ""; position: absolute; inset: 7px 2px auto; border-top: 2px solid #0f172a75; }
+        .pickleball-paddle::after { content: ""; position: absolute; top: 13px; left: 4px; width: 5px; height: 9px;
+            border-radius: 2px; background: #94a3b8; }
+        .pickleball-ball { position: absolute; top: 2px; right: 0; width: 10px; height: 10px; border-radius: 50%;
+            background: radial-gradient(circle at 30% 38%, #713f12 0 1px, transparent 1.2px),
+                radial-gradient(circle at 68% 32%, #713f12 0 1px, transparent 1.2px),
+                radial-gradient(circle at 55% 73%, #713f12 0 1px, transparent 1.2px), #facc15; }
+        .prep-player-name { display: block; overflow-wrap: anywhere; }
+        #step3 .slot-name { display: flex; align-items: center; justify-content: center; gap: 3px; }
+        #step3 .slot-name > span:last-child { min-width: 0; }
+        #timerShield { position: fixed; inset: 0 0 auto; z-index: 99999; padding: max(.75rem, env(safe-area-inset-top)) .75rem .85rem; }
+        #timerShield button { min-height: 44px; max-width: 100%; font-size: 16px; white-space: normal; }
         #editFinalScore { width: 100%; padding-inline: .5rem; }
         #step4 button:disabled { opacity: .5; }
     </style>
@@ -420,13 +438,6 @@
             <div class="live-actions grid grid-cols-2 gap-1.5 mb-1.5 p2-only">
                 <button onclick="forceSwap(true)" class="bg-orange-900/30 border border-orange-500/40 py-1.5 rounded-lg text-[10px] font-bold text-orange-300 btn-press">🔄 左队换位</button>
                 <button onclick="forceSwap(false)" class="bg-orange-900/30 border border-orange-500/40 py-1.5 rounded-lg text-[10px] font-bold text-orange-300 btn-press">🔄 右队换位</button>
-            </div>
-
-            <!-- 解除面板按钮 (仅倒计时显示) -->
-            <div id="cancelTimerBtnContainer" class="hidden mb-1.5">
-                <button id="cancelTimerBtn" onclick="triggerManualCancel()" class="w-full bg-red-800/40 border border-red-500/30 py-2 rounded-lg text-[11px] font-bold text-red-300 btn-press flex items-center justify-center gap-1">
-                    <span>⏹️</span> 解除当前倒计时面板
-                </button>
             </div>
 
             <!-- 底部左右双按钮 -->
@@ -1243,6 +1254,12 @@
             $('pointLeft').disabled = !scoringAllowed;
             $('pointRight').disabled = !scoringAllowed;
             $('undoPoint').disabled = !!activeTimer || !['in_progress','game_complete_pending_settlement'].includes(matchPhase);
+            const left = gameState.viewBa ? 't2' : 't1';
+            const right = gameState.viewBa ? 't1' : 't2';
+            $('timeoutLeft').disabled = !scoringAllowed || !!timeoutUsed[left];
+            $('timeoutRight').disabled = !scoringAllowed || !!timeoutUsed[right];
+            $('medTimeoutLeft').disabled = !scoringAllowed || !!timeoutUsed[left === 't1' ? 'medicalT1' : 'medicalT2'];
+            $('medTimeoutRight').disabled = !scoringAllowed || !!timeoutUsed[right === 't1' ? 'medicalT1' : 'medicalT2'];
         }
 
         function isPreparingGame() {
@@ -1281,6 +1298,15 @@
             return left === swapped ? 2 : 1;
         }
 
+        function pickleballPlayerIcon(team) {
+            const icon = document.createElement('span');
+            icon.className = 'pickleball-icon';
+            icon.dataset.team = team;
+            icon.setAttribute('aria-hidden', 'true');
+            icon.innerHTML = '<i class="pickleball-paddle"></i><i class="pickleball-ball"></i>';
+            return icon;
+        }
+
         function renderSetupCourt() {
             const serving = Number(getRadio('serve'));
             for (const left of [true, false]) {
@@ -1296,7 +1322,10 @@
                     const id = left ? (right ? 'prepBL' : 'prepTL') : (right ? 'prepTR' : 'prepBR');
                     const player = doubles ? currentMatch[prefix + 'p' + (right ? first : 3 - first)] : (right ? currentMatch[prefix + 'p1'] : '');
                     const button = $(id);
-                    button.textContent = player ? player + (right ? ' · ' + role : '') : '空区';
+                    const label = document.createElement('span');
+                    label.className = 'prep-player-name';
+                    label.textContent = player ? player + (right ? ' · ' + role : '') : '空区';
+                    button.replaceChildren(...(player ? [pickleballPlayerIcon(team), label] : [label]));
                     button.disabled = !doubles;
                     button.classList.toggle('court-starter', right);
                     if (doubles) button.setAttribute('aria-pressed', String(right));
@@ -1469,7 +1498,6 @@
             matchState.over = false;
 
             $('endGameBtn').classList.add('hidden');
-            $('cancelTimerBtnContainer').classList.add('hidden');
 
             matchPhase = 'in_progress';
             backupState();
@@ -1538,7 +1566,6 @@
 
             $('tlName1').innerText = leftName; $('tlName2').innerText = rightName;
             $('pointCountText').innerText = `G${matchState.currentGame} / 共 ${matchState.timeline.length} 球`;
-            updateScoringAuthority();
 
             $('timelineT1').innerHTML = ''; $('timelineT2').innerHTML = '';
             matchState.timeline.forEach(team => {
@@ -1595,7 +1622,9 @@
                 const el = $(id);
                 if (name) {
                     el.innerHTML = bld(name, teamNum, isServTarget);
-                    el.querySelector('.slot-name').textContent = name;
+                    const label = document.createElement('span');
+                    label.textContent = name;
+                    el.querySelector('.slot-name').replaceChildren(pickleballPlayerIcon(teamNum), label);
                     el.classList.remove('hidden');
                 } else {
                     el.innerHTML = '';
@@ -1646,88 +1675,78 @@
                     updateSlot('slotBR', gameState.t1.l, 1, isServeBox(1, 'Left'));
                 }
             }
+            updateScoringAuthority();
         }
 
         window.forceSwap = (isLeft) => { let t = gameState.viewBa ? (isLeft?'t2':'t1') : (isLeft?'t1':'t2'); let tmp = gameState[t].r; gameState[t].r = gameState[t].l; gameState[t].l = tmp; renderGame(); backupState(); showToast('✅ 队伍强行互换成功'); };
 
-        function startTimer(sec, msg, onCancelCallback = null) {
-            if(activeTimer) clearInterval(activeTimer);
-            $('pointLeft').disabled = true; $('pointRight').disabled = true; $('undoPoint').disabled = true;
-            $('cancelTimerBtnContainer').classList.remove('hidden'); // 显示解除按钮
-            
-            window.timerCancelCb = onCancelCallback;
+        function showTimerPanel(message, timerText, actionText, action) {
+            $('timerShield')?.remove();
+            const panel = document.createElement('div');
+            panel.id = 'timerShield';
+            panel.className = 'bg-red-700 text-slate-100 flex flex-col items-center gap-2 text-center border-b-4 border-red-500 shadow-lg';
+            panel.innerHTML = '<div id="tmsg" class="text-sm font-bold"></div>'
+                + '<div id="tsec" class="text-3xl font-black font-mono bg-black/40 px-6 py-1.5 rounded-xl text-amber-400"></div>'
+                + '<button type="button" class="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold border border-slate-600"></button>';
+            panel.querySelector('#tmsg').textContent = message;
+            panel.querySelector('#tsec').textContent = timerText;
+            const button = panel.querySelector('button');
+            button.textContent = actionText;
+            button.addEventListener('click', action);
+            document.body.appendChild(panel);
+        }
+
+        function startTimer(sec, msg) {
             const isEndChange = matchPhase === 'deciding_game_end_change';
-            const action = isEndChange
-                ? '<button onclick="completeDecidingGameEndChange()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md border border-emerald-500 transition-colors">✓ 确认双方已完成换场并继续</button>'
-                : '<button onclick="stopTimerManually(true)" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md border border-slate-600 transition-colors">强行解除并继续</button>';
-            const staleShield = $('timerShield'); if (staleShield) staleShield.remove();
-            const shield = document.createElement('div'); shield.id = 'timerShield';
-            shield.className = 'fixed top-0 left-0 right-0 h-36 bg-red-700 text-slate-100 z-[99999] flex flex-col justify-center items-center shadow-[0_10px_30px_rgba(220,38,38,0.5)] font-black border-b-4 border-red-500 animate-enter';
-            shield.innerHTML = `<div id="tmsg" class="text-sm mb-3 tracking-widest flex items-center gap-2"><span>🛡️</span> ${msg}</div><div class="flex flex-col items-center gap-4"><div class="text-3xl font-black font-mono tracking-wider bg-black/40 px-6 py-1.5 rounded-xl shadow-inner text-amber-400"><span id="tsec">${sec}</span><span class="text-lg text-slate-300 ml-1">s</span></div><div class="flex gap-3 mt-1">${action}</div></div>`;
-            document.body.appendChild(shield);
-            let left = sec; activeTimer = setInterval(() => {
-                left--; if($('tsec')) $('tsec').innerText = Math.max(0, left);
-                if(left <= 0 && matchPhase === 'deciding_game_end_change') {
-                    clearInterval(activeTimer); activeTimer = null;
-                    if($('tmsg')) $('tmsg').innerText = '换场计时已结束，请确认双方已完成换场后继续';
-                    updateScoringAuthority();
-                } else if(left <= 0) stopTimerManually(false);
+            showTimerPanel(msg, sec + ' 秒',
+                isEndChange ? '确认双方已换场，继续比赛' : '结束暂停，继续比赛',
+                isEndChange ? completeDecidingGameEndChange : stopTimerManually);
+            let left = sec;
+            activeTimer = setInterval(() => {
+                left--;
+                $('tsec').textContent = Math.max(0, left) + ' 秒';
+                if (left > 0) return;
+                if (isEndChange) {
+                    clearInterval(activeTimer);
+                    activeTimer = null;
+                    $('tmsg').textContent = '换场计时已结束，请确认双方已完成换场后继续';
+                } else stopTimerManually();
             }, 1000);
+            updateScoringAuthority();
         }
 
         function startElapsedTimer(msg) {
-            if(activeTimer) clearInterval(activeTimer);
-            $('pointLeft').disabled = true; $('pointRight').disabled = true; $('undoPoint').disabled = true;
-            $('cancelTimerBtnContainer').classList.remove('hidden');
-            
-            window.timerCancelCb = null;
-            const action = matchPhase === 'deciding_game_end_change'
-                ? '<button onclick="completeDecidingGameEndChange()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md border border-emerald-500 transition-colors">✓ 确认双方已完成换场并继续</button>'
-                : '<button onclick="stopTimerManually(true)" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md border border-slate-600 transition-colors">结束医疗伤停并继续</button>';
-            const staleShield = $('timerShield'); if (staleShield) staleShield.remove();
-            const shield = document.createElement('div'); shield.id = 'timerShield';
-            shield.className = 'fixed top-0 left-0 right-0 h-36 bg-red-700 text-slate-100 z-[99999] flex flex-col justify-center items-center shadow-[0_10px_30px_rgba(220,38,38,0.5)] font-black border-b-4 border-red-500 animate-enter';
-            shield.innerHTML = `<div id="tmsg" class="text-sm mb-3 tracking-widest flex items-center gap-2"><span>🏥</span> ${msg}</div><div class="flex flex-col items-center gap-4"><div class="text-3xl font-black font-mono tracking-wider bg-black/40 px-6 py-1.5 rounded-xl shadow-inner text-amber-400"><span id="tsec">00:00</span></div>${action}</div>`;
-            document.body.appendChild(shield);
+            showTimerPanel(msg, '00:00', '结束医疗伤停，继续比赛', stopTimerManually);
             let elapsed = 0;
             activeTimer = setInterval(() => {
                 elapsed++;
                 const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
                 const seconds = (elapsed % 60).toString().padStart(2, '0');
-                if($('tsec')) $('tsec').innerText = `${minutes}:${seconds}`;
+                $('tsec').textContent = minutes + ':' + seconds;
             }, 1000);
+            updateScoringAuthority();
         }
 
-        window.stopTimerManually = function(isManual = true) {
-            if (matchPhase === 'deciding_game_end_change') {
-                showToast('⚠️ 决胜局换场必须使用“确认双方已完成换场并继续”', true);
-                return;
-            }
-            if(activeTimer) clearInterval(activeTimer); activeTimer = null;
-            const shield = $('timerShield'); if(shield) shield.remove();
-            $('cancelTimerBtnContainer').classList.add('hidden'); // 隐藏解除按钮
+        function stopTimerManually() {
+            if (matchPhase === 'deciding_game_end_change') return;
+            clearInterval(activeTimer);
+            activeTimer = null;
+            $('timerShield')?.remove();
             updateScoringAuthority();
-            if(isManual && window.timerCancelCb) { window.timerCancelCb(); window.timerCancelCb = null; }
-        };
+        }
 
         window.completeDecidingGameEndChange = function() {
             if (matchPhase !== 'deciding_game_end_change' || !matchState.endChangePending) return;
             if(activeTimer) clearInterval(activeTimer); activeTimer = null;
             const shield = $('timerShield'); if(shield) shield.remove();
-            $('cancelTimerBtnContainer').classList.add('hidden'); // 隐藏解除按钮
             matchState.endChangePending = false;
             matchPhase = 'in_progress';
-            window.timerCancelCb = null;
             backupState(); renderGame(); updateScoringAuthority();
             showToast('✅ 双方换场完成，恢复计分');
         };
 
-        window.triggerManualCancel = () => {
-            if(matchPhase === 'deciding_game_end_change') return showToast('⚠️ 请在换场面板确认双方已完成换场', true);
-            if(activeTimer) { stopTimerManually(true); showToast('✅ 已强行解除倒计时'); } else showToast('⏳ 当前无倒计时');
-        };
-
         window.requestTimeout = (isLeftBtn) => {
+            if (matchPhase !== 'in_progress' || activeTimer) return;
             let isT1Target = gameState.viewBa ? !isLeftBtn : isLeftBtn;
             if(isT1Target) {
                 if(timeoutUsed.t1) return showToast('左队额度已用尽', true);
@@ -1739,7 +1758,7 @@
         };
 
         window.requestMedical = (isLeftBtn) => {
-            if(matchState.over) return;
+            if (matchPhase !== 'in_progress' || activeTimer) return;
             let isT1Target = gameState.viewBa ? !isLeftBtn : isLeftBtn;
             let teamName = isT1Target ? currentMatch.t1Name : currentMatch.t2Name;
 
