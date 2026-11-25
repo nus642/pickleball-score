@@ -151,33 +151,37 @@
     </style>
 
     <style id="courtAndReadability">
-        body { overscroll-behavior: none; }
+        body { overscroll-behavior: none; font-size: 17px; line-height: 1.45; }
         #mainApp { min-height: 0; }
         #step3 { height: auto; }
         #step3.pre-match #pointLeft, #step3.pre-match #pointRight,
         #step3.pre-match .live-actions { display: none !important; }
         #step1 button, #step2 button, #step3 button, #step4 button,
         #refereeInfoBar button { min-height: 44px; }
-        #step1 input, #step1 textarea, #step1 select, #loginPanel input { font-size: 16px; }
+        #step1 input, #step1 textarea, #step1 select, #loginPanel input { font-size: 18px; }
         #step1 label, #offlineLoginHint, #smartFillBody p, #smartFillResult,
         #refereeInfoBar, #refereeInfoBar button, #reportText,
         #signatureBoxArea p, #signatureBoxArea button, #step3 button,
-        #step4 button { font-size: 15px; }
-        #leftTeamName, #rightTeamName { font-size: 16px; white-space: normal; overflow-wrap: anywhere; }
-        #leftScore, #rightScore { font-size: 2.6rem; }
-        #step3 .pb-slot > span, #matchIdBar, #matchScoreBar, #pointCountText { font-size: 12px; }
-        #step3 .pb-slot { align-content: center; flex-direction: column; flex-wrap: nowrap; }
+        #step4 button { font-size: 17px; }
+        #leftTeamName, #rightTeamName { font-size: 18px; white-space: normal; overflow-wrap: anywhere; }
+        #leftScore, #rightScore { font-size: 2.85rem; }
+        #matchIdBar, #matchScoreBar, #pointCountText, #gameNum, #scoreCallBar { font-size: 14px; }
+        #step3 .pb-slot {
+            width: auto; min-width: min(3.6rem, 100%); max-width: 100%; height: auto;
+            padding: .2rem .35rem; gap: 0; border-width: 1px;
+            align-content: center; flex-direction: column; flex-wrap: nowrap;
+        }
         #step3 .slot-name { flex: 0 1 auto; width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
         #step3 [id^="slot"].hidden { background: transparent; border: 0; }
         #step3 [id^="slot"].hidden::after { color: #b5d4db; font-size: 12px; }
         .animate-pulse { animation: none !important; }
         #step2 { scroll-margin-top: .5rem; }
         #step1 { margin-bottom: .75rem; }
-        .court-help { color: #cbd5e1; font-size: 15px; margin: 0 0 .65rem; }
+        .court-help { color: #cbd5e1; font-size: 17px; margin: 0 0 .65rem; }
         .court-setup, .scoring-court { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
         .court-setup button { overflow-wrap: anywhere; }
         .court-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; margin-bottom: .5rem; }
-        .court-actions button { border: 1px solid #64748b; border-radius: .5rem; background: #334155; font-weight: 700; }
+        .court-actions button { border: 1px solid #64748b; border-radius: .5rem; background: #334155; font-size: 16px; font-weight: 700; }
         .court-actions button[aria-pressed="true"] { background: #075985; border-color: #7dd3fc; }
         .court-actions button:disabled, #confirmStartBtn:disabled { opacity: .6; }
         .opening-role { color: #94a3b8; font-size: 12px; font-weight: 500; }
@@ -196,27 +200,35 @@
         .court-end { position: relative; width: calc(100% * 15 / 44); display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); }
         .court-end::after { content: ""; position: absolute; inset: 50% 0 auto; border-top: 2px solid #cde5e8; pointer-events: none; }
         .court-end > * { min-width: 0; min-height: 0; margin: 4px; }
-        #step2 .court-end button { min-height: 0; font-size: 16px; font-weight: 800; line-height: 1.15;
-            color: #f8fafc; background: #16374b; border-radius: .4rem; }
+        .court-end > [id^="slot"] { justify-content: center; }
+        #step2 .court-end button {
+            place-self: center; width: fit-content; min-width: min(3.6rem, calc(100% - 8px));
+            max-width: calc(100% - 8px); min-height: min(44px, calc(100% - 8px));
+            padding: .2rem .35rem; font-weight: 800;
+            color: #f8fafc; background: #16374b; border-radius: .5rem;
+        }
+        #step2 .court-end button, #step3 .slot-name {
+            font-size: clamp(18px, 4.6vw, 23px); line-height: 1.12;
+        }
         #step2 .court-end button:not(:disabled) { outline: 1px dashed #7dd3fc; }
         #pointLeft, #pointRight { width: 100%; flex-direction: row; gap: .55rem; }
         #pointLeft br, #pointRight br { display: none; }
-        #pointLeft span:last-child, #pointRight span:last-child { font-size: 15px; }
+        #pointLeft span:last-child, #pointRight span:last-child { font-size: 17px; }
         #refereeSigCanvas { touch-action: none; user-select: none; }
         .pickleball-ball { display: inline-block; flex: none; width: 11px; height: 11px; border-radius: 50%;
             background: radial-gradient(circle at 30% 38%, #713f12 0 1px, transparent 1.2px),
                 radial-gradient(circle at 68% 32%, #713f12 0 1px, transparent 1.2px),
                 radial-gradient(circle at 55% 73%, #713f12 0 1px, transparent 1.2px), #facc15; }
         .prep-player-name { display: block; overflow-wrap: anywhere; }
-        #step3 .pb-slot > .opening-role { font-weight: 500; }
+        #step3 .pb-slot > .opening-role { font-size: 12px; font-weight: 500; }
         #step3 .slot-name { display: flex; align-items: center; justify-content: center; gap: 3px; }
         #step3 .slot-player-label { min-width: 0; }
         #timerShield { position: fixed; inset: 0 0 auto; z-index: 99999; padding: max(.75rem, env(safe-area-inset-top)) .75rem .85rem; }
-        #timerShield button { min-height: 44px; max-width: 100%; font-size: 16px; white-space: normal; }
+        #timerShield button { min-height: 44px; max-width: 100%; font-size: 17px; white-space: normal; }
         #briefingDialog { width: min(calc(100% - 1.25rem), 38rem); max-height: calc(100dvh - 1.25rem);
             margin: auto; overflow: auto; color: #f1f5f9; background: #172033; }
         #briefingDialog::backdrop { background: #020617c9; }
-        #briefingText { min-height: 8rem; height: min(50dvh, 23rem); font-size: 16px; line-height: 1.6; resize: vertical; }
+        #briefingText { min-height: 8rem; height: min(50dvh, 23rem); font-size: 18px; line-height: 1.6; resize: vertical; }
         #briefingDialog button { min-height: 44px; }
         #editFinalScore { width: 100%; padding-inline: .5rem; }
         #step4 button:disabled { opacity: .5; }
