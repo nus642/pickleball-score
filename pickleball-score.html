@@ -176,11 +176,12 @@
         .court-help { color: #cbd5e1; font-size: 15px; margin: 0 0 .65rem; }
         .court-setup, .scoring-court { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
         .court-setup button { overflow-wrap: anywhere; }
-        .court-team, .court-swap { border-radius: .55rem; padding: .35rem .55rem; font-weight: 700; }
-        #step2 .court-team { min-height: 36px; padding: .25rem .4rem; font-size: 14px; }
-        .court-team { color: #ecfeff; background: #134e4a; border: 1px solid #5eead4; }
-        .court-team[aria-pressed="true"] { color: #1c1917; background: #fcd34d; border-color: #fcd34d; }
-        .court-swap { grid-column: 1 / -1; border: 1px solid #64748b; background: #334155; }
+        .court-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; margin-bottom: .5rem; }
+        .court-actions button { border: 1px solid #64748b; border-radius: .5rem; background: #334155; font-weight: 700; }
+        .court-actions button[aria-pressed="true"] { background: #075985; border-color: #7dd3fc; }
+        .court-actions button:disabled, #confirmStartBtn:disabled { opacity: .6; }
+        .opening-role { color: #94a3b8; font-size: 12px; font-weight: 500; }
+        .court-team-name { text-align: center; overflow-wrap: anywhere; font-weight: 700; }
         .court-surface {
             position: relative; grid-column: 1 / -1; grid-row: 2;
             width: 100%; aspect-ratio: 44 / 20; box-sizing: border-box;
@@ -197,25 +198,17 @@
         .court-end > * { min-width: 0; min-height: 0; margin: 4px; }
         #step2 .court-end button { min-height: 0; font-size: 16px; font-weight: 800; line-height: 1.15;
             color: #f8fafc; background: #16374b; border-radius: .4rem; }
-        #step2 .court-end button.court-starter { border: 2px solid #fcd34d; }
+        #step2 .court-end button:not(:disabled) { outline: 1px dashed #7dd3fc; }
         #pointLeft, #pointRight { width: 100%; flex-direction: row; gap: .55rem; }
         #pointLeft br, #pointRight br { display: none; }
         #pointLeft span:last-child, #pointRight span:last-child { font-size: 15px; }
         #refereeSigCanvas { touch-action: none; user-select: none; }
-        .pickleball-icon { position: relative; display: inline-block; width: 21px; height: 23px;
-            color: #93c5fd; flex: none; vertical-align: middle; }
-        .pickleball-icon[data-team="2"] { color: #6ee7b7; }
-        .pickleball-paddle { position: absolute; top: 1px; left: 4px; width: 13px; height: 15px;
-            transform: rotate(36deg); border-radius: 5px 5px 4px 4px; background: currentColor;
-            box-shadow: inset 0 0 0 1px #e2e8f080; }
-        .pickleball-paddle::before { content: ""; position: absolute; inset: 7px 2px auto; border-top: 2px solid #0f172a75; }
-        .pickleball-paddle::after { content: ""; position: absolute; top: 13px; left: 4px; width: 5px; height: 9px;
-            border-radius: 2px; background: #94a3b8; }
         .pickleball-ball { display: inline-block; flex: none; width: 11px; height: 11px; border-radius: 50%;
             background: radial-gradient(circle at 30% 38%, #713f12 0 1px, transparent 1.2px),
                 radial-gradient(circle at 68% 32%, #713f12 0 1px, transparent 1.2px),
                 radial-gradient(circle at 55% 73%, #713f12 0 1px, transparent 1.2px), #facc15; }
         .prep-player-name { display: block; overflow-wrap: anywhere; }
+        #step3 .pb-slot > .opening-role { font-weight: 500; }
         #step3 .slot-name { display: flex; align-items: center; justify-content: center; gap: 3px; }
         #step3 .slot-player-label { min-width: 0; }
         #timerShield { position: fixed; inset: 0 0 auto; z-index: 99999; padding: max(.75rem, env(safe-area-inset-top)) .75rem .85rem; }
@@ -336,10 +329,15 @@
             </div>
 
             <section aria-label="球场选边和首发设置" class="section-card p-3 mb-3">
-                <p class="court-help">点半场上方选择发球方，另一队接发。双打点球员可指定首发或首接。</p>
+                <div class="court-actions">
+                    <button id="courtEndSetup" type="button" onclick="swapSetupEnds()">两队换边</button>
+                    <button id="pickServerBtn" type="button" onclick="pickOpeningRole('serve')" aria-pressed="false">选首发</button>
+                    <button id="pickReceiverBtn" type="button" onclick="pickOpeningRole('receive')" aria-pressed="false">选首接</button>
+                </div>
+                <p id="openingSelectionStatus" class="court-help" aria-live="polite"></p>
                 <div class="court-setup">
-                    <button id="serveCourtLeft" class="court-team" onclick="chooseCourtServe(true)"></button>
-                    <button id="serveCourtRight" class="court-team" onclick="chooseCourtServe(false)"></button>
+                    <div id="setupLeftName" class="court-team-name text-blue-300"></div>
+                    <div id="setupRightName" class="court-team-name text-emerald-300"></div>
                     <div id="setupCourt" class="court-surface">
                         <div class="court-kitchen" aria-hidden="true"></div>
                         <div class="court-net" aria-hidden="true"></div>
@@ -352,7 +350,6 @@
                             <button id="prepBR" onclick="chooseCourtPlayer(false, false)"></button>
                         </div>
                     </div>
-                    <button id="courtEndSetup" class="court-swap" onclick="swapSetupEnds()">交换左右场区</button>
                 </div>
                 <div hidden>
                     <input type="radio" id="init-ba-f" name="init_ba" value="f" checked>
@@ -1352,7 +1349,7 @@
                 $('betweenGamesHeading').classList.toggle('hidden', !betweenGames);
                 $('preMatchBriefing').classList.toggle('hidden', betweenGames);
                 $('coinTossSetup').classList.toggle('hidden', betweenGames);
-                $('courtEndSetup').classList.toggle('hidden', betweenGames);
+                $('courtEndSetup').disabled = betweenGames;
                 if (betweenGames) $('betweenGamesTitle').textContent = '下一局准备 · 第 ' + matchState.currentGame + ' 局';
                 $('confirmStartBtn').textContent = betweenGames ? '开始第 ' + matchState.currentGame + ' 局' : '进入比赛';
                 renderSetupCourt();
@@ -1374,38 +1371,49 @@
             return left === swapped ? 2 : 1;
         }
 
-        function pickleballPlayerIcon(team) {
-            const icon = document.createElement('span');
-            icon.className = 'pickleball-icon';
-            icon.dataset.team = team;
-            icon.setAttribute('aria-hidden', 'true');
-            icon.innerHTML = '<i class="pickleball-paddle"></i>';
-            return icon;
+        let openingPick = '';
+
+        function openingRoles() {
+            const preparation = matchState.preparation || {};
+            return {
+                server: !!preparation.serverConfirmed,
+                receiver: !!preparation.serverConfirmed
+                    && (currentMatch.type === 'singles' || !!preparation.receiverConfirmed)
+            };
         }
 
         function renderSetupCourt() {
             const serving = Number(getRadio('serve'));
+            const doubles = currentMatch.type === 'doubles';
+            const roles = openingRoles();
+            $('pickReceiverBtn').disabled = !doubles || !roles.server;
+            $('pickReceiverBtn').textContent = doubles ? '选首接' : '首接自动确定';
+            $('pickServerBtn').setAttribute('aria-pressed', String(openingPick === 'serve'));
+            $('pickReceiverBtn').setAttribute('aria-pressed', String(openingPick === 'receive'));
+            $('confirmStartBtn').disabled = matchPhase === 'not_started' && !(roles.server && roles.receiver);
+            $('openingSelectionStatus').textContent = openingPick === 'serve' ? '点球场上的球员确认首发。'
+                : openingPick === 'receive' ? '点另一队的球员确认首接。'
+                : !roles.server ? (matchPhase === 'between_games_preparation' ? '可沿用本局默认站位，也可重新选择首发。' : '确认左右场区后，点「选首发」。')
+                : !roles.receiver ? '首发已确认。请点「选首接」。' : '首发和首接已确认。';
+
             for (const left of [true, false]) {
                 const team = setupCourtTeam(left);
                 const prefix = 't' + team;
                 const first = $(prefix + 'Stance').value === 'P2' ? 2 : 1;
-                const role = serving === team ? '首发' : '首接';
-                const teamButton = $(left ? 'serveCourtLeft' : 'serveCourtRight');
-                teamButton.textContent = (left ? '左场 · ' : '右场 · ') + currentMatch[prefix + 'Name'] + ' · ' + role;
-                teamButton.setAttribute('aria-pressed', String(serving === team));
-                const doubles = currentMatch.type === 'doubles';
+                const isServer = serving === team;
+                $(left ? 'setupLeftName' : 'setupRightName').textContent = currentMatch[prefix + 'Name'];
                 for (const right of [true, false]) {
                     const id = left ? (right ? 'prepBL' : 'prepTL') : (right ? 'prepTR' : 'prepBR');
                     const player = doubles ? currentMatch[prefix + 'p' + (right ? first : 3 - first)] : (right ? currentMatch[prefix + 'p1'] : '');
                     const button = $(id);
-                    const label = document.createElement('span');
-                    label.className = 'prep-player-name';
-                    label.textContent = player ? player + (right ? ' · ' + role : '') : '空区';
-                    button.replaceChildren(...(player ? [pickleballPlayerIcon(team), label] : [label]));
-                    button.disabled = !doubles;
-                    button.classList.toggle('court-starter', right);
-                    if (doubles) button.setAttribute('aria-pressed', String(right));
-                    else button.removeAttribute('aria-pressed');
+                    button.textContent = player || '空区';
+                    button.disabled = !player || (openingPick !== 'serve' && !(openingPick === 'receive' && !isServer));
+                    if (player && right && (isServer ? roles.server : roles.receiver)) {
+                        const tag = document.createElement('span');
+                        tag.className = 'opening-role prep-player-name';
+                        tag.textContent = isServer ? '首发' : '首接';
+                        button.appendChild(tag);
+                    }
                 }
             }
         }
@@ -1416,16 +1424,28 @@
             backupPreparationChoices();
         };
 
-        window.chooseCourtServe = left => {
-            if (!isPreparingGame()) return;
-            document.querySelector(`input[name="serve"][value="${setupCourtTeam(left)}"]`).checked = true;
-            backupPreparationChoices();
+        window.pickOpeningRole = role => {
+            if (!isPreparingGame() || (role === 'receive' && $('pickReceiverBtn').disabled)) return;
+            openingPick = openingPick === role ? '' : role;
+            renderSetupCourt();
         };
 
         window.chooseCourtPlayer = (left, right) => {
-            if (!isPreparingGame() || right || currentMatch.type !== 'doubles') return;
-            const select = $(`t${setupCourtTeam(left)}Stance`);
-            select.value = select.value === 'P1' ? 'P2' : 'P1';
+            if (!isPreparingGame() || !openingPick || (!right && currentMatch.type === 'singles')) return;
+            const team = setupCourtTeam(left);
+            const serving = Number(getRadio('serve'));
+            const preparation = matchState.preparation || (matchState.preparation = {});
+            if (openingPick === 'receive' && (!preparation.serverConfirmed || team === serving)) return;
+            if (openingPick === 'serve') {
+                document.querySelector('input[name="serve"][value="' + team + '"]').checked = true;
+                if (team !== serving) preparation.receiverConfirmed = false;
+                preparation.serverConfirmed = true;
+            } else {
+                preparation.receiverConfirmed = true;
+            }
+            const select = $('t' + team + 'Stance');
+            if (!right) select.value = select.value === 'P1' ? 'P2' : 'P1';
+            openingPick = '';
             backupPreparationChoices();
         };
 
@@ -1434,6 +1454,13 @@
             if (save) {
                 localStorage.setItem('pickle_def_court', $('courtNo').value); localStorage.setItem('pickle_def_target', $('targetScore').value); localStorage.setItem('pickle_def_cap', $('capScore').value); localStorage.setItem('pickle_def_format', $('gameFormat').value); localStorage.setItem('pickle_def_meth', $('scoreRule').value);
                 saveSetupCache();
+            }
+            if (currentMatch.type && currentMatch.type !== $('matchTypeSel').value) {
+                openingPick = '';
+                if (matchState.preparation) {
+                    matchState.preparation.serverConfirmed = false;
+                    matchState.preparation.receiverConfirmed = false;
+                }
             }
             currentMatch = {
                 id: $('matchIdInput2').value.trim() || currentMatch.id || `LOC-${Date.now().toString().slice(-4)}`, court: $('courtNo').value || '1',
@@ -1474,6 +1501,8 @@
             if (getCurrentStep() !== 2 || !currentMatch.id) return;
             if (matchPhase === 'between_games_preparation') await executeStartMatch();
             else if (matchPhase === 'not_started') {
+                const roles = openingRoles();
+                if (!roles.server || !roles.receiver) return;
                 showMatchPreview();
                 $('step3').scrollIntoView({block: 'start'});
             }
@@ -1482,6 +1511,7 @@
         window.backupPreparationChoices = () => {
             renderSetupCourt();
             matchState.preparation = {
+                ...matchState.preparation,
                 viewBa: $('init-ba-t').checked,
                 serveTeam: parseInt(getRadio('serve') || 1),
                 t1Right: currentMatch.type === 'doubles' ? $('t1Stance').value : '',
@@ -1597,12 +1627,8 @@
             projectSinglesCourtPositions();
             let leftTeamNum = gameState.viewBa ? 2 : 1; let rightTeamNum = gameState.viewBa ? 1 : 2;
             let leftName = gameState.viewBa ? currentMatch.t2Name : currentMatch.t1Name; let rightName = gameState.viewBa ? currentMatch.t1Name : currentMatch.t2Name;
-            let leftBuff = gameState.initServTeam === leftTeamNum ? `<span class="bg-amber-600 text-white px-1 py-0.5 rounded shadow-sm ml-1 text-[9px] font-black uppercase">首发</span>` : `<span class="bg-cyan-600 text-white px-1 py-0.5 rounded shadow-sm ml-1 text-[9px] font-black uppercase">首接</span>`;
-            let rightBuff = gameState.initServTeam === rightTeamNum ? `<span class="bg-amber-600 text-white px-1 py-0.5 rounded shadow-sm ml-1 text-[9px] font-black uppercase">首发</span>` : `<span class="bg-cyan-600 text-white px-1 py-0.5 rounded shadow-sm ml-1 text-[9px] font-black uppercase">首接</span>`;
-            $('leftTeamName').textContent = leftName + ' ';
-            $('leftTeamName').insertAdjacentHTML('beforeend', leftBuff);
-            $('rightTeamName').textContent = rightName + ' ';
-            $('rightTeamName').insertAdjacentHTML('beforeend', rightBuff);
+            $('leftTeamName').textContent = leftName;
+            $('rightTeamName').textContent = rightName;
 
             let leftScore = gameState.viewBa ? matchState.t2Score : matchState.t1Score; let rightScore = gameState.viewBa ? matchState.t1Score : matchState.t2Score;
             $('leftScore').innerText = leftScore; $('rightScore').innerText = rightScore;
@@ -1656,32 +1682,15 @@
             const bld = (name, teamNum, isServTarget) => {
                 if (!name) return '';
                 
-                let roleTag = '';
-                if (currentMatch.type === 'doubles') {
-                    const isInitRight1 = (name === gameState.initRightP1);
-                    const isInitRight2 = (name === gameState.initRightP2);
-                    
-                    if (teamNum === 1 && isInitRight1) {
-                        roleTag = gameState.initServTeam === 1 
-                            ? `<span class="bg-amber-500 text-slate-900 text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm shrink-0">首发</span>`
-                            : `<span class="bg-cyan-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm shrink-0">首接</span>`;
-                    } else if (teamNum === 2 && isInitRight2) {
-                        roleTag = gameState.initServTeam === 2 
-                            ? `<span class="bg-amber-500 text-slate-900 text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm shrink-0">首发</span>`
-                            : `<span class="bg-cyan-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm shrink-0">首接</span>`;
-                    }
-                }
+                const openingPlayer = teamNum === 1 ? gameState.initRightP1 : gameState.initRightP2;
+                const openingRole = gameState.initServTeam === teamNum ? '首发' : '首接';
+                const roleTag = name === openingPlayer ? '<span class="opening-role">' + openingRole + '</span>' : '';
 
                 const borderClass = isServTarget ? 'border-amber-500 bg-amber-900/20 shadow-[inset_0_0_10px_rgba(245,158,11,0.2)]' : 'border-slate-600 bg-slate-800';
                 const textClass = isServTarget ? 'text-yellow-400 drop-shadow-md' : 'text-slate-300';
-                // 发球得分制双打：当前发球员的徽标直接标明「一发 / 二发」；其它情形沿用原「发球」文案
-                const serveLabel = (currentMatch.meth === 'sideout' && currentMatch.type === 'doubles')
-                    ? (gameState.servNum === 2 ? '二发' : '一发') : '发球';
-
                 return `<div class='pb-slot w-full h-full flex flex-wrap items-center justify-center overflow-hidden rounded-lg border-2 ${borderClass} px-1 gap-1'>
                             ${roleTag}
                             <div class='slot-name text-sm sm:text-base font-black truncate text-center leading-tight ${textClass} flex-1'></div>
-                            ${isServTarget ? `<span class="bg-amber-500 text-slate-900 text-[9px] font-black px-1 py-0.5 rounded shadow-sm shrink-0 animate-pulse">${serveLabel}</span>` : ''}
                         </div>`;
             };
 
@@ -1693,11 +1702,12 @@
                     label.className = 'slot-player-label';
                     label.textContent = name;
                     const player = el.querySelector('.slot-name');
-                    player.replaceChildren(pickleballPlayerIcon(teamNum), label);
+                    player.replaceChildren(label);
                     if (isServTarget) {
                         const ball = document.createElement('span');
                         ball.className = 'pickleball-ball';
-                        ball.setAttribute('aria-hidden', 'true');
+                        ball.setAttribute('role', 'img');
+                        ball.setAttribute('aria-label', '当前发球');
                         player.appendChild(ball);
                     }
                     el.classList.remove('hidden');
@@ -1974,6 +1984,7 @@
                 t2Right: currentMatch.type === 'doubles' ? 'P1' : ''
             };
 
+            openingPick = '';
             matchPhase = 'between_games_preparation';
             projectCurrentMatchToSetup();
             setAuthoritativeFieldsLocked(true);
