@@ -484,6 +484,8 @@
                 </div>
 
                 <button id="submitReport" onclick="submitFinalReport()" class="bg-gradient-to-r from-emerald-600 to-teal-600 w-full py-4 rounded-xl font-black text-base mb-3 shadow-[0_4px_15px_rgba(16,185,129,0.3)] btn-press tracking-widest mt-4">✓ 签名确认并完成比赛</button>
+                <button id="shareSignedRecord" onclick="shareSignedRecordImage()" class="hidden bg-emerald-700 w-full py-4 rounded-xl font-black text-base mb-3 btn-press">分享赛果图片</button>
+                <p id="signedRecordHelp" class="hidden text-sm text-slate-300 mb-3" role="status"></p>
                 <button id="saveSignedRecord" onclick="saveSignedRecordImage()" class="hidden bg-indigo-600 w-full py-4 rounded-xl font-black text-base mb-3 shadow-lg btn-press">保存签名赛果图片</button>
 
                 <div class="mb-6">
@@ -2025,7 +2027,24 @@
             renderGame(); backupState();
         };
 
-        let signedRecordImageData = '';
+        let signedRecordFile = null;
+        let signedRecordUrl = '';
+
+        function releaseSignedRecord() {
+            if (signedRecordUrl) URL.revokeObjectURL(signedRecordUrl);
+            signedRecordFile = null;
+            signedRecordUrl = '';
+        }
+
+        function canShareSignedRecord() {
+            try {
+                return !!signedRecordFile && typeof navigator.share === 'function'
+                    && typeof navigator.canShare === 'function'
+                    && navigator.canShare({files: [signedRecordFile]});
+            } catch (e) {
+                return false;
+            }
+        }
         let signatureBoardHTML = '';
         let evidenceResultIdentity = '';
 
@@ -2043,7 +2062,10 @@
         }
 
         function invalidateSignedEvidence() {
-            hasSigned = false; signedRecordImageData = ''; evidenceResultIdentity = '';
+            hasSigned = false; evidenceResultIdentity = '';
+            releaseSignedRecord();
+            $('shareSignedRecord').classList.add('hidden');
+            $('signedRecordHelp').classList.add('hidden');
             refereeSigCanvas = null; pendingSignatureDraft = '';
             $('saveSignedRecord').classList.add('hidden');
             const submitBtn = $('submitReport');
@@ -2053,10 +2075,29 @@
         }
 
         function projectFinalizedEvidence(signedReportBase64) {
-            if ($('canvasContainer')) $('canvasContainer').innerHTML = `<img src="${signedReportBase64}" alt="已签名的赛果图片" class="w-full rounded shadow-lg border border-emerald-500">`;
-            if ($('clearRefereeSigBtn')) $('clearRefereeSigBtn').outerHTML = `<div class="text-sm text-amber-400 mt-2 font-black bg-amber-900/30 py-2 rounded">👆 长按上方生成的图片可保存或发往赛事群</div>`;
-            signedRecordImageData = signedReportBase64;
+            const encoded = signedReportBase64.split(',')[1];
+            const bytes = Uint8Array.from(atob(encoded), char => char.charCodeAt(0));
+            const filename = (currentMatch.id || 'match') + '-signed-record.jpg';
+            const file = new File([bytes], filename, {type: 'image/jpeg'});
+            const url = URL.createObjectURL(file);
+            releaseSignedRecord();
+            signedRecordFile = file;
+            signedRecordUrl = url;
+
+            const preview = document.createElement('img');
+            preview.src = url;
+            preview.alt = '已签名的赛果图片';
+            preview.className = 'w-full rounded shadow-lg border border-emerald-500';
+            $('canvasContainer').replaceChildren(preview);
+            $('clearRefereeSigBtn')?.remove();
+            const shareSupported = canShareSignedRecord();
+            $('shareSignedRecord').classList.toggle('hidden', !shareSupported);
             $('saveSignedRecord').classList.remove('hidden');
+            const help = $('signedRecordHelp');
+            help.textContent = shareSupported
+                ? '点「分享赛果图片」选择发送方式。'
+                : '当前浏览器无法直接分享文件。请先保存图片，再从聊天应用选择文件发送。';
+            help.classList.remove('hidden');
         }
 
         function restoreFinalizedEvidenceView(signedReportBase64) {
@@ -2068,11 +2109,29 @@
         }
 
         window.saveSignedRecordImage = () => {
-            if (!signedRecordImageData) return showToast('请先签名并完成比赛记录', true);
+            if (!signedRecordFile) return showToast('请先签名并完成比赛记录', true);
             const link = document.createElement('a');
-            link.href = signedRecordImageData;
-            link.download = `${currentMatch.id || 'match'}-signed-record.jpg`;
+            link.href = signedRecordUrl;
+            link.download = signedRecordFile.name;
             document.body.appendChild(link); link.click(); link.remove();
+        };
+
+        window.shareSignedRecordImage = async () => {
+            const help = $('signedRecordHelp');
+            if (!canShareSignedRecord()) {
+                help.textContent = '请先保存图片，再从聊天应用选择文件发送。';
+                return;
+            }
+            const button = $('shareSignedRecord');
+            if (button.disabled) return;
+            button.disabled = true;
+            try {
+                await navigator.share({files: [signedRecordFile]});
+            } catch (e) {
+                if (e.name !== 'AbortError') help.textContent = '图片未能直接分享。请先保存图片，再从聊天应用发送。';
+            } finally {
+                button.disabled = false;
+            }
         };
 
         window.submitFinalReport = () => {
