@@ -229,6 +229,10 @@
         #briefingDialog::backdrop { background: #020617c9; }
         #briefingText { min-height: 8rem; height: min(50dvh, 23rem); font-size: 18px; line-height: 1.6; resize: vertical; }
         #briefingDialog button { min-height: 44px; }
+        .smart-fill-header { display: flex; align-items: center; justify-content: space-between; gap: .35rem; margin-bottom: .35rem; }
+        #step1 .smart-fill-header label { font-size: 15px; }
+        #step1 .smart-fill-header button { min-height: 38px; padding-inline: .5rem; font-size: 14px; white-space: nowrap; }
+        #smartFillInput { display: block; width: 100%; min-height: 46px; height: 46px; padding: .45rem .55rem; resize: vertical; }
         .setup-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; }
         .setup-choices > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px;
             border-radius: .5rem; padding: 2px; background: #0f172a; border: 1px solid #475569; }
@@ -272,14 +276,14 @@
 
         <div id="step1" class="hidden-section">
             <div id="smartFillBlock" class="section-card border border-indigo-500/40 bg-indigo-900/50 p-3 mb-2">
-                <div class="text-sm font-bold text-indigo-300 mb-2">🔍 智能识别填充</div>
-                <div id="smartFillBody" class="mt-1">
-                    <textarea id="smartFillInput" class="input-base mb-2 py-1.5 px-2" rows="2" aria-label="比赛资料"></textarea>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="applySmartFill()" class="bg-indigo-600 flex-1 py-2 rounded-lg text-xs font-bold btn-press shadow-md">✨ 识别并填充</button>
-                        <button type="button" onclick="clearSmartFill()" class="bg-slate-700 px-4 py-2 rounded-lg text-xs font-bold btn-press text-slate-300">清空</button>
+                <div class="smart-fill-header">
+                    <label for="smartFillInput" class="font-bold text-indigo-300">智能识别填充</label>
+                    <div class="flex gap-1.5">
+                        <button type="button" onclick="applySmartFill()" class="bg-indigo-600 rounded-lg font-bold btn-press">识别并填充</button>
+                        <button type="button" onclick="clearSmartFill()" class="bg-slate-700 rounded-lg font-bold btn-press text-slate-300">清空</button>
                     </div>
                 </div>
+                <textarea id="smartFillInput" class="input-base" rows="1" aria-label="比赛资料"></textarea>
             </div>
 
             <div class="section-card p-2 mb-2">
